@@ -8,23 +8,28 @@ import random
 
 PATH = "log/sendmail.log"
 
-
-def getTime():
-    ISOTIMEFORMAT = '%Y-%m-%d %X'
-    return time.strftime(ISOTIMEFORMAT, time.localtime());
+#getTime according specify format
+def getTime(format):
+    #return the time format like 2017-07-17 15:34:23
+    if(format == 1):
+        ISOTIMEFORMAT = '%Y-%m-%d %X'
+        return time.strftime(ISOTIMEFORMAT, time.localtime());
+    #return the time format like Sun Jun 15:34:23 2017
+    elif(format == 2):
+        return time.asctime( time.localtime(time.time()) )
 
 def printErr(msg):
-    print "[-]Error "+ getTime() + ' ' + msg +'\n'
+    print "[-]Error "+ getTime(1) + ' ' + msg +'\n'
 
 def saveLog(msg, flag):
     if flag == 1:
-        log = '[-]Error '+ getTime() + ' ' + msg +'\n'
+        log = '[-]Error '+ getTime(1) + ' ' + msg +'\n'
     elif flag == 2:
-        log = '[-]Warning '+ getTime() + ' ' + msg + '\n'
+        log = '[-]Warning '+ getTime(1) + ' ' + msg + '\n'
     elif flag == 3:
-        log = '[*]Debug '+ getTime() + ' '+ msg + '\n'
+        log = '[*]Debug '+ getTime(1) + ' '+ msg + '\n'
     else:
-        log = '[+]Normal '+ getTime() + ' '+ msg + '\n'
+        log = '[+]Normal '+ getTime(1) + ' '+ msg + '\n'
     
     try:
         f = open(PATH, 'a')
@@ -37,7 +42,7 @@ def saveLog(msg, flag):
 #fr mail form
 #to mail to
 #data mail content
-def sendmail(fr, to, data):
+def sendMailCore(fr, to, data):
     s = socket.socket()
     #make sure to connect server
     try:
@@ -47,29 +52,35 @@ def sendmail(fr, to, data):
             if banner[:3] == '220':
                 break
             else:
-                saveLog("Line 43 Error", 3)
+                saveLog("Connect return: "+ banner, 3)
         while True:
             s.send("EHLO kali.mei.com\r\n")
             ret = s.recv(1024)
             if ret[:3] == '250':
                 break
+            else:
+                saveLog("EHLO return: "+ banner, 3 )
         while True:
             s.send("MAIL FROM:<"+ fr +">\r\n")
             ret = s.recv(1024)
             if ret[:3] == '250':
                 break
+            else:
+                saveLog("FROM return: "+ banner, 3)
         while True:
             s.send("RCPT TO:<"+ to +">\r\n")
             ret = s.recv(1024)
             if ret[:3] == '250':
                 break
+            else:
+                saveLog("RCPT return: "+ banner, 3)
         while True:
             s.send("DATA\r\n")
             ret = s.recv(1024)
             if ret[:3] == '354':
                 break
             else:
-                saveLog("Line 63 Error", 3)
+                saveLog("DATA return:"+ banner, 3)
         while True:
             s.send(data.encode('utf-8'))
             s.send("\r\n.\r\n")
@@ -77,7 +88,7 @@ def sendmail(fr, to, data):
             if ret[:3] == '250':
                 break
             else:
-                saveLog("Line 71 Error", 3)
+                saveLog("DATA OVER return: "+ banner, 3)
         while True:
             s.send("QUIT\r\n")
             ret = s.recv(1024)
@@ -90,43 +101,16 @@ def sendmail(fr, to, data):
         return True
     except Exception, e:
         saveLog(str(e), 1)
+        return False
     
 def makeContent(fr, to, subject, data, isHtml=False, Path=None):
-    mail_template = '''
-    Date: {date}\n
-    From: {from}\n
-    To: {to}\n
-    Subject: {subject}\n
-    X-priority: {priority}\n
-    X-Mailer: Charmail 1.0.0[cn]\n
-    Content-Type: multipart/alternative;\n
-        boundary="-------=_Part_{random}_=-------"\n
-    This is a multi-part message in MIME format.\n\n
-    {content}
-    -------=_Part_{random}_=-------\n
-    '''
+    mail_template = '''Date: {date}\r\nFrom: <{from}>\r\nTo: <{to}>\r\nSubject: {subject}\r\nX-priority: {priority}\r\nX-Mailer: Charmail 1.0.0[cn]\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative;\r\n\tboundary="-----=_Part_{random}_=-----"\r\n{content}\r\n-------=_Part_{random}_=-------'''
 
-    text_content_template = '''
-    -------=_Part_{random}_=-------
-    Content-Type: text/plain; charset=UTF-8\n
-    Content-Transfer-Encoding:base64\n
-    {content}
-    '''
+    text_content_template = '''-------=_Part_{random}_=-----\r\nContent-Type: text/plain;\n\tcharset="UTF-8"\r\nContent-Transfer-Encoding: base64\r\n\r\n{content}\r\n'''
 
-    html_content_template = '''
-    -------=_Part_{random}_=-------
-    Content-Type: text/html; charset=UTF-8\n
-    Content-Transfer-Encoding: quoted-printable\n
-    {content}
-    '''
+    html_content_template = '''-------=_Part_{random}_=-----\r\nContent-Type: text/html;\r\n\tcharset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n{content}\r\n'''
 
-    attachment_content_template='''
-    -------=_Part_{random}_=-------
-    Content-Type: {type}; name={name}\n
-    Content-Transfer-Encoding: base6\n
-    Content-Disposition: attachment; filename={name}\n
-    {content}
-    '''
+    attachment_content_template='''-------=_Part_{random}_=-----\r\nContent-Type: {type};\r\n\tname={name}\r\nContent-Transfer-Encoding: base6\r\nContent-Disposition: attachment;\r\n\tfilename={name}\r\n{content}\r\n'''
 
     attachment_type = ['text/plain', 'application/zip', 'image/jpeg']
 
@@ -136,7 +120,7 @@ def makeContent(fr, to, subject, data, isHtml=False, Path=None):
     to_len = len(to)
     to_len_2 = int(to_len/2)
     sub_len = len(subject)
-    sub_len_2 = len(sub_len_2/2)
+    sub_len_2 = int(sub_len/2)
     rand = fr[random.randint(0,fr_len_2) : random.randint(fr_len_2,fr_len)] + to[ random.randint(0,to_len_2) : random.randint(to_len_2, to_len)] + subject[ random.randint(0,sub_len_2) : random.randint(sub_len_2, sub_len)]
     md = md5.new()
     md.update(rand)
@@ -144,27 +128,41 @@ def makeContent(fr, to, subject, data, isHtml=False, Path=None):
 
     if isHtml == True:
         content = html_content_template
-        content.replace('{content}', data)
+        content = content.replace('{content}', data)
+        content = content.replace('{random}', rand)
     else:
         content = text_content_template
-        content.replace('{content}', base64.b64encode(data))
+        content = content.replace('{content}', base64.b64encode(data))
+        content = content.replace('{random}', rand)
     #make attachment content later
 
     #make the total mail content
-    mail_template.replace('{date}', getTime())
-    mail_template.replace('{from}', fr)
-    mail_template.replace('{to}', to)
-    mail_template.replace('{subject}', subject)
-    mail_template.replace('{priority}', 3)
-    mail_template.replace('{random}', rand)
-    mail_template.replace('{content}', content)
-
-
+    mail_template =  mail_template.replace('{date}', getTime(2))
+    mail_template =  mail_template.replace('{from}', fr)
+    mail_template =  mail_template.replace('{to}', to)
+    mail_template =  mail_template.replace('{subject}', subject)
+    mail_template =  mail_template.replace('{priority}', '3')
+    mail_template =  mail_template.replace('{random}', rand, 5)
+    mail_template =  mail_template.replace('{content}', content)
+    
+    return mail_template
+    
+def sendMail(fr, to, subject, data, isHtml=False, Path=None ):
+    return sendMailCore(fr, to, makeContent(fr, to, subject, data, isHtml, Path) )
 
 def main():
-   result =  sendmail('mei@trendmei.com', 'myl@trendmei.com', "this is a test mail access IMSS by SMTP cammond code .")
-   if result == True:
-       saveLog("Mail Send Success", 5)
+    #makeContent('from@abc.com', 'to@abc.com', 'make content test', 'this is mail content data')
+    result =  sendMail('mei@trendmei.com', 'myl@trendmei.com', 'Charmail test' ,'''
+            <!DOCTYPE html>
+            <html><head></head><body>hello html</body></html>
+            ''')
+    #result = sendMailCore('mei@trendmei.com', 'myl@trendmei.com', 'Charmail test')
+    if result == True:
+        print "Successed"
+        saveLog("Mail Send Success", 5)
+    else:
+        print "Failed"
+        saveLog("Send Mail Failed", 3)
 
 if __name__ == '__main__':
     main()
