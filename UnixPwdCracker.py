@@ -35,9 +35,9 @@ def main(user):
 	for line in passFile.readlines():
 		if user+":" in line:
 			passField = line.split(':')[1].strip(' ')
-            cryptPass = passField
-            passField = passField.split('$')
-            salt = '$'+ passField[1] +'$'+ passField[2] +'$'
+           		cryptPass = passField
+           		passField = passField.split('$')
+           		salt = '$'+ passField[1] +'$'+ passField[2] +'$'
 			print '[*] Cracking Password For: '+user
 			testPass(cryptPass, salt)
 			break
